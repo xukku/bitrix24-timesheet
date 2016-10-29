@@ -1,0 +1,405 @@
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<script src="//api.bitrix24.com/api/v1/"></script>
+</head>
+<body>
+
+<div id="workarea-content-app">
+
+	<div class="filter-block">
+
+		<div class="form-element">
+			<label>
+				<select class="form-input-workgroup filter-dropdown">
+					<option>- Рабочая группа -</option>
+				</select>
+			</label>
+		</div>
+
+		<div class="form-element">
+			<label>
+				<select class="form-input-user filter-dropdown">
+					<option>- Сотрудник -</option>
+				</select>
+			</label>
+		</div>
+
+		<div class="form-element">
+			<label>
+				Цена, ч. <input
+					class="form-input-price webform-field-textbox" value="400">
+			</label>
+		</div>
+
+		<div class="form-element">
+			<label>
+				<select class="form-input-date filter-dropdown">
+					<option value="current_year" selected>Текущий год</option>
+					<option value="previous_year">Предыдущий год</option>
+					<option value="" disabled>-----</option>
+					<option value="current_month">Текущий месяц</option>
+					<option value="previous_month">Предыдущий месяц</option>
+				</select>
+			</label>
+		</div>
+
+		<div class="form-element filter-field-buttons">
+			<input class="btn-show-timesheet" type="submit" value="Посчитать">
+		</div>
+
+		<div class="form-element filter-field-buttons">
+			<input class="btn-hide-logs" type="submit" value="Скрыть логи">
+		</div>
+
+	</div>
+
+	<table cellspacing="0" class="table-timesheet reports-list-table" id="report-result-table">
+		<thead>
+			<th class="reports-head-cell reports-head-cell-top">
+				Дата создания
+			</th>
+			<th class="reports-head-cell reports-head-cell-top">
+				Название / Комментарий
+			</th>
+			<th class="reports-head-cell reports-head-cell-top">
+				Время, мин.
+			</th>
+			<th class="reports-head-cell reports-head-cell-top">
+				Время, ч.
+			</th>
+			<th class="reports-head-cell reports-head-cell-top">
+				Цена, руб.
+			</th>
+		</thead>
+		<tbody>
+		</tbody>
+	</table>
+
+</div>
+
+<style>
+
+#workarea-content-app {
+  background-color: #fff;
+  height: 100%;
+ }
+
+.table-timesheet tr.log {
+	font-size: 9px;
+	height: 12px;
+}
+
+.table-timesheet tr.task td {
+	background-color: #eeeeee;
+	padding-bottom: 8px;
+	font-size: 14px;
+}
+
+.table-timesheet tr.total {
+	font-weight: bold;
+}
+
+.table-timesheet tr.total td {
+	padding-top: 8px;
+}
+
+.form-element {
+	padding-bottom: 8px;
+	display: inline;
+	margin-right: 12px;
+}
+
+.form-element select {
+  font: 13px/16px "Helvetica Neue",Helvetica,Arial,sans-serif;
+  color: #555;
+}
+
+.hidden {
+	display:none;
+}
+
+.form-input-price {
+	width: 60px;
+}
+
+</style>
+
+<script>
+(function () {
+	"use strict";
+
+	function queryParams(qstr) {
+    let result = {};
+    if (!qstr) {
+    	return result;
+    }
+    let a = qstr.substr(1).split("&");
+    for (let i = 0; i < a.length; i++) {
+      let b = a[i].split("=");
+      result[decodeURIComponent(b[0])] = decodeURIComponent(b[1] || "");
+    }
+    return result;
+  }
+
+  function reportAddRow(cols, params) {
+		//let row = cols.join("\t") + "\n";
+		//console.log(row);
+
+		if (cols[0] != "" && cols[0] != "Всего:") {
+			let d = new Date(cols[0]);
+			let month = d.getMonth() + 1;
+			let day = d.getDate();
+			let h = d.getHours();
+			let min = d.getMinutes();
+			cols[0] = d.getFullYear()
+				+ "-" + (month < 10? ("0" + month) : month)
+				+ "-" + (day < 10? ("0" + day) : day)
+				+ " " + (h < 10? ("0" + h) : h)
+				+ ":" + (min < 10? ("0" + min) : min)
+		}
+
+		if (cols[5] != "") {
+			cols[1] = "<a href='" + cols[5] + "' target='_blank'>" + cols[1] + "</a>";
+		}
+		delete cols[5];
+
+		let row = $tableTimesheet.insertRow(-1);
+		row.classList.add("reports-list-item");
+		if (params) {
+			if ("row" in params) {
+				if ("class" in params.row) {
+					row.classList.add(params.row.class);
+				}
+			}
+		}
+		for (let i in cols) {
+			let col = row.insertCell(-1);
+			col.innerHTML = cols[i];
+			if (i == 0) {
+				col.classList.add("reports-first-column");
+			}
+			if (i == 2 || i == 3 || i == 4) {
+				col.classList.add("reports-numeric-column");
+			}
+		}
+	}
+
+	function buildReport() {
+		$btnShowTimeSheet.disabled = true;
+		$tableTimesheet.innerHTML = "";
+		totalHours = 0;
+		totalMins = 0;
+		totalPrice = 0;
+		workGroupId = parseInt(document.querySelector(".form-input-workgroup").value);
+		priceHour = parseFloat(document.querySelector(".form-input-price").value);
+		let filterDate = $selectDate.value.split(",");
+
+		//console.log(workGroupId);
+		//console.log(filterDate);
+
+		let page = 1;
+		let itemsPerPage = 50;
+		let filter = {
+			"GROUP_ID": workGroupId,
+			"!REAL_STATUS": [4, 5], // STATE_SUPPOSEDLY_COMPLETED, STATE_COMPLETED
+			">=CREATED_DATE": filterDate[0]
+		};
+		if (filterDate.length > 1) {
+			filter["<=CREATED_DATE"] = filterDate[1];
+		}
+
+		let filterUserId = $selectUsers.options[$selectUsers.selectedIndex].value;
+
+		console.log(filter);
+
+		BX24.callMethod("task.item.list", [
+			{TITLE: "asc"},
+			filter,
+			{
+				NAV_PARAMS: {
+		      nPageSize: itemsPerPage,
+		      iNumPage: page
+		    }
+		  },
+			["ID", "TITLE", "CREATED_DATE", "REAL_STATUS"]
+		], function (result) {
+			if (result.error()) {
+				console.log("error: ", result.error());
+				return;
+			}
+
+			//console.log("data: ", result.data());
+
+			let tasksResult = result;
+			let batchCmd = {};
+			let tasks = result.data();
+			for (let i in tasks) {
+				//console.log(tasks[i]);
+				batchCmd[i] = ["task.elapseditem.getlist", {
+					TASKID: tasks[i].ID,
+					ORDER: {
+						CREATED_DATE: "asc"
+					},
+					FILTER: {
+						USER_ID: filterUserId
+					},
+				}];
+			}
+			BX24.callBatch(batchCmd, function (result) {
+				for (let i in result) {
+					let logs = result[i].data();
+					if (logs.length) {
+						let tmpMinutes = 0;
+						for (let j in logs) {
+							tmpMinutes += parseInt(logs[j].MINUTES);
+							let tmpHours = logs[j].MINUTES / 60;
+							let tmpPrice = tmpHours * priceHour;
+							reportAddRow([
+								logs[j].CREATED_DATE,
+								logs[j].COMMENT_TEXT,
+								logs[j].MINUTES,
+								tmpHours.toFixed(2),
+								Math.round(tmpPrice),
+								"",
+							], {row: {class: "log"}});
+						}
+						let tmpHours = tmpMinutes / 60;
+						let tmpPrice = tmpHours * priceHour;
+						totalMins += tmpMinutes;
+						totalHours += tmpHours;
+						totalPrice += tmpPrice;
+						reportAddRow([
+							tasks[i].CREATED_DATE,
+							tasks[i].TITLE,
+							tmpMinutes,
+							tmpHours.toFixed(2),
+							Math.round(tmpPrice),
+							portalUrl + "/workgroups/group/" + workGroupId + "/tasks/task/view/" + tasks[i].ID + "/",
+						], {row: {class: "task"}});
+					}
+				}
+
+				// get next page for tasks
+				if (tasksResult.more()) {
+					tasksResult.next();
+				} else {
+					reportAddRow([
+						"Всего:",
+						"",
+						totalMins,
+						totalHours.toFixed(2),
+						Math.round(totalPrice),
+						"",
+					], {row: {class: "total"}});
+					$btnShowTimeSheet.disabled = false;
+					BX24.fitWindow();
+				}
+			});
+
+		});
+	}
+
+	// init current portal url
+	let portalUrl = "https://rodzeta.bitrix24.ru";
+	let urlParams = queryParams(location.search);
+	if (urlParams["DOMAIN"] != "") {
+		portalUrl = "https://" + urlParams["DOMAIN"];
+	}
+
+	// load css
+	let styles = [
+		"/bitrix/cache/css/s1/bitrix24/kernel_main/kernel_main.css",
+		"/bitrix/cache/css/s1/bitrix24/kernel_report/kernel_report.css",
+		"/bitrix/cache/css/s1/bitrix24/template_bx24/template_bx24.css"
+	];
+	for (let i in styles) {
+		let css = document.createElement("link");
+		css.setAttribute("rel", "stylesheet");
+		css.setAttribute("type", "text/css")
+		css.setAttribute("href", portalUrl + styles[i]);
+		document.getElementsByTagName("head")[0].appendChild(css);
+	}
+
+	let workGroupId;
+	let priceHour;
+	let currentUserId;
+	let totalPrice;
+	let totalHours;
+	let totalMins;
+	let $btnShowTimeSheet = document.querySelector(".btn-show-timesheet");
+	let $selectUsers = document.querySelector(".form-input-user");
+	let $tableTimesheet = document.querySelector(".table-timesheet tbody");
+	let $btnHideLogs = document.querySelector(".btn-hide-logs");
+	let $selectWorkGroups = document.querySelector(".form-input-workgroup");
+
+	// init filter date
+	let $selectDate = document.querySelector(".form-input-date");
+	let currentDate = new Date();
+	let currentMonth;
+	let filterDate = {};
+	for (let i in $selectDate.options) {
+		switch ($selectDate.options[i].value) {
+			case "current_year":
+				$selectDate.options[i].value = filterDate["current_year"] = currentDate.getFullYear() + "-01-01";
+				break;
+			case "previous_year":
+				filterDate["previous_year"] = (currentDate.getFullYear() - 1) + "-01-01";
+				$selectDate.options[i].value = filterDate["previous_year"] + "," + filterDate["current_year"];
+				break;
+			case "current_month":
+				currentMonth = currentDate.getMonth() + 1;
+				$selectDate.options[i].value = filterDate["current_month"] =
+					currentDate.getFullYear() + "-" + (currentMonth < 10? ("0" + currentMonth) : currentMonth) + "-01";
+				break;
+			case "previous_month":
+			 	currentDate.setDate(1);
+			  currentDate.setMonth(currentDate.getMonth() - 1);
+			  currentMonth = currentDate.getMonth() + 1;
+			  filterDate["previous_month"] = currentDate.getFullYear() + "-" + (currentMonth < 10? ("0" + currentMonth) : currentMonth) + "-01";
+			  $selectDate.options[i].value = filterDate["previous_month"] + "," + filterDate["current_month"];
+				break;
+		}
+	}
+
+	BX24.callMethod("user.get", {"ACTIVE": true}, function (result) {
+		let users = result.data();
+		let html = ["<option>- Сотрудник -</option>"];
+		for (let i in users) {
+			html.push("<option value='" + users[i].ID + "'>" + users[i].NAME + " " + users[i].LAST_NAME + "</option>");
+		}
+		$selectUsers.innerHTML = html.join("\n");
+
+		//console.log(users);
+
+		BX24.callMethod("user.current", {}, function (result) {
+			currentUserId = result.data().ID;
+			$selectUsers.querySelector('option[value="' + currentUserId + '"]').setAttribute("selected", "selected");
+
+			$btnShowTimeSheet.onclick = function () {
+				buildReport();
+			};
+
+			$btnHideLogs.onclick = function () {
+				for (let $tr of $tableTimesheet.querySelectorAll(".reports-list-item.log")) {
+					$tr.classList.add("hidden");
+				}
+			};
+		});
+
+	});
+
+	BX24.callMethod("sonet_group.get", {}, function (result) {
+		let options = ["<option>- Рабочая группа -</option>"];
+		for (let group of result.data()) {
+			options.push("<option value='" + group.ID + "'>" + group.NAME + "</option>");
+		}
+		$selectWorkGroups.innerHTML = options.join("\n");
+	});
+
+
+})();
+</script>
+
+</body>
+</html>
