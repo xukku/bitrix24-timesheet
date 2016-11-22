@@ -17,6 +17,6 @@
 
 ## Скриншоты
 
-![001.png](screenshots/001.png?raw=true "Вид с логами")
+![001.png](/screenshots/001.png?raw=true "Вид с логами")
 
-![002.png](screenshots/002.png?raw=true "Вид без логов")
+![002.png](/screenshots/002.png?raw=true "Вид без логов")
