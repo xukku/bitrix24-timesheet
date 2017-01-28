@@ -245,12 +245,23 @@
 				console.log("error: ", result.error());
 				return;
 			}
-
 			//console.log("data: ", result.data());
-
 			let tasksResult = result;
 			let batchCmd = {};
 			let tasks = result.data();
+			if (tasks.length == 0) { // empty result
+				reportAddRow([
+					"Всего:",
+					"",
+					0,
+					0,
+					0,
+					"",
+				], {row: {class: "total"}});
+				$btnShowTimeSheet.disabled = false;
+				BX24.fitWindow();
+				return;
+			}
 			for (let i in tasks) {
 				//console.log(tasks[i]);
 				batchCmd[i] = ["task.elapseditem.getlist", {
