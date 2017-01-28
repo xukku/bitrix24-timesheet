@@ -355,29 +355,31 @@
 	let currentDate = new Date();
 	let currentMonth;
 	let filterDate = {};
+	filterDate["previous_year"] = (currentDate.getFullYear() - 1) + "-01-01";
+	filterDate["current_year"] = currentDate.getFullYear() + "-01-01";
+	filterDate["current_month"] = currentDate.getFullYear() + "-"
+		+ (currentMonth < 10? ("0" + currentMonth) : currentMonth) + "-01";
+	currentDate.setDate(1);
+  currentDate.setMonth(currentDate.getMonth() - 1);
+  currentMonth = currentDate.getMonth() + 1;
+  filterDate["previous_month"] = currentDate.getFullYear() + "-" + (currentMonth < 10? ("0" + currentMonth) : currentMonth) + "-01";
+
 	for (let i in $selectDate.options) {
 		switch ($selectDate.options[i].value) {
 			case "current_year":
-				$selectDate.options[i].value = filterDate["current_year"] = currentDate.getFullYear() + "-01-01";
+				$selectDate.options[i].value = filterDate["current_year"];
 				break;
 			case "previous_year":
-				filterDate["previous_year"] = (currentDate.getFullYear() - 1) + "-01-01";
 				$selectDate.options[i].value = filterDate["previous_year"] + "," + filterDate["current_year"];
 				break;
 			case "before_previous_year":
-				filterDate["previous_year"] = (currentDate.getFullYear() - 1) + "-01-01";
 				$selectDate.options[i].value = "," + filterDate["previous_year"];
 				break;
 			case "current_month":
 				currentMonth = currentDate.getMonth() + 1;
-				$selectDate.options[i].value = filterDate["current_month"] =
-					currentDate.getFullYear() + "-" + (currentMonth < 10? ("0" + currentMonth) : currentMonth) + "-01";
+				$selectDate.options[i].value = filterDate["current_month"];
 				break;
 			case "previous_month":
-			 	currentDate.setDate(1);
-			  currentDate.setMonth(currentDate.getMonth() - 1);
-			  currentMonth = currentDate.getMonth() + 1;
-			  filterDate["previous_month"] = currentDate.getFullYear() + "-" + (currentMonth < 10? ("0" + currentMonth) : currentMonth) + "-01";
 			  $selectDate.options[i].value = filterDate["previous_month"] + "," + filterDate["current_month"];
 				break;
 		}
