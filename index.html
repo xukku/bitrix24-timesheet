@@ -42,11 +42,12 @@
 		<div class="form-element">
 			<label>
 				<select class="form-input-date filter-dropdown">
-					<option value="current_year" selected>Текущий год</option>
+					<option value="before_previous_year" selected>Ранее предыдущего года</option>
 					<option value="previous_year">Предыдущий год</option>
+					<option value="current_year" selected>Текущий год</option>
 					<option value="" disabled>-----</option>
-					<option value="current_month">Текущий месяц</option>
 					<option value="previous_month">Предыдущий месяц</option>
+					<option value="current_month">Текущий месяц</option>
 				</select>
 			</label>
 		</div>
@@ -203,17 +204,26 @@
 		let filterDate = $selectDate.value.split(",");
 
 		//console.log(workGroupId);
-		//console.log(filterDate);
+		console.log(filterDate);
 
 		let page = 1;
 		let itemsPerPage = 50;
 		let filter = {
 			"GROUP_ID": workGroupId,
 			"!REAL_STATUS": [4, 5], // STATE_SUPPOSEDLY_COMPLETED, STATE_COMPLETED
-			">=CREATED_DATE": filterDate[0]
 		};
 		if (filterDate.length > 1) {
-			filter["<=CREATED_DATE"] = filterDate[1];
+			if (filterDate[0] != "") {
+				filter[">=CREATED_DATE"] = filterDate[0];
+				filter["<=CREATED_DATE"] = filterDate[1];
+				console.log("range 2");
+			} else {
+				filter["<=CREATED_DATE"] = filterDate[1];
+				console.log("range before");
+			}
+		} else {
+			filter[">=CREATED_DATE"] = filterDate[0];
+			console.log("range after");
 		}
 
 		let filterUserId = $selectUsers.options[$selectUsers.selectedIndex].value;
@@ -353,6 +363,10 @@
 			case "previous_year":
 				filterDate["previous_year"] = (currentDate.getFullYear() - 1) + "-01-01";
 				$selectDate.options[i].value = filterDate["previous_year"] + "," + filterDate["current_year"];
+				break;
+			case "before_previous_year":
+				filterDate["previous_year"] = (currentDate.getFullYear() - 1) + "-01-01";
+				$selectDate.options[i].value = "," + filterDate["previous_year"];
 				break;
 			case "current_month":
 				currentMonth = currentDate.getMonth() + 1;
