@@ -134,21 +134,9 @@
 </style>
 
 <script>
+
 (function () {
 	"use strict";
-
-	function queryParams(qstr) {
-    let result = {};
-    if (!qstr) {
-    	return result;
-    }
-    let a = qstr.substr(1).split("&");
-    for (let i = 0; i < a.length; i++) {
-      let b = a[i].split("=");
-      result[decodeURIComponent(b[0])] = decodeURIComponent(b[1] || "");
-    }
-    return result;
-  }
 
   function reportAddRow(cols, params) {
 		//let row = cols.join("\t") + "\n";
@@ -194,14 +182,23 @@
 	}
 
 	function buildReport() {
+		if (document.querySelector(".form-input-workgroup").value == "") {
+			alert("Рабочая группа не выбрана.");
+			return;
+		}
+		if ($selectUsers.options[$selectUsers.selectedIndex].value == "") {
+			alert("Сотрудник не выбран.");
+			return;	
+		}
 		$btnShowTimeSheet.disabled = true;
 		$tableTimesheet.innerHTML = "";
 		totalHours = 0;
 		totalMins = 0;
 		totalPrice = 0;
-		workGroupId = parseInt(document.querySelector(".form-input-workgroup").value);
+		workGroupId = parseInt(document.querySelector(".form-input-workgroup").value);		
 		priceHour = parseFloat(document.querySelector(".form-input-price").value);
 		let filterDate = $selectDate.value.split(",");
+		let filterUserId = $selectUsers.options[$selectUsers.selectedIndex].value;
 
 		//console.log(workGroupId);
 		console.log(filterDate);
@@ -226,7 +223,7 @@
 			console.log("range after");
 		}
 
-		let filterUserId = $selectUsers.options[$selectUsers.selectedIndex].value;
+		
 
 		console.log(filter);
 
@@ -330,9 +327,10 @@
 
 	// init current portal url
 	let portalUrl = "https://rodzeta.bitrix24.ru";
-	let urlParams = queryParams(location.search);
-	if (urlParams["DOMAIN"] != "") {
-		portalUrl = "https://" + urlParams["DOMAIN"];
+	let parsedUrl = new URL(location.href);
+	let portalDomain = parsedUrl.searchParams.get("DOMAIN");  
+	if (portalDomain != "") {
+		portalUrl = "https://" + portalDomain;
 	}
 
 	// load css
@@ -396,43 +394,39 @@
 		}
 	}
 
-	BX24.callMethod("user.get", {"ACTIVE": true}, function (result) {
+	BX24.callMethod("user.get", {
+		"ACTIVE": true
+	}, function (result) {
 		let users = result.data();
-		let html = ["<option>- Сотрудник -</option>"];
+		let html = ['<option value="">- Сотрудник -</option>'];
 		for (let i in users) {
 			html.push("<option value='" + users[i].ID + "'>" + users[i].NAME + " " + users[i].LAST_NAME + "</option>");
 		}
 		$selectUsers.innerHTML = html.join("\n");
 
-		//console.log(users);
-
 		BX24.callMethod("user.current", {}, function (result) {
 			currentUserId = result.data().ID;
 			$selectUsers.querySelector('option[value="' + currentUserId + '"]').setAttribute("selected", "selected");
-
 			$btnShowTimeSheet.onclick = function () {
 				buildReport();
 			};
-
 			$btnHideLogs.onclick = function () {
 				for (let $tr of $tableTimesheet.querySelectorAll(".reports-list-item.log")) {
 					$tr.classList.add("hidden");
 				}
 			};
 		});
-
 	});
 
 	BX24.callMethod("sonet_group.get", {}, function (result) {
-		let options = ["<option>- Рабочая группа -</option>"];
+		let options = ['<option value="">- Рабочая группа -</option>'];
 		for (let group of result.data()) {
 			options.push("<option value='" + group.ID + "'>" + group.NAME + "</option>");
 		}
 		$selectWorkGroups.innerHTML = options.join("\n");
 	});
-
-
 })();
+
 </script>
 
 </body>
